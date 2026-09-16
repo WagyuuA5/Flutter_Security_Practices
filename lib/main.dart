@@ -1,8 +1,12 @@
-﻿import 'package:flutter_security_practices/features/biometric/presentation/biometric_lock_screen.dart';
+﻿import 'package:flutter_security_practices/features/api_keys/presentation/api_keys_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_security_practices/features/biometric/presentation/biometric_lock_screen.dart';
 import 'package:flutter_security_practices/features/secure_storage/presentation/secure_storage_screen.dart';
 import 'package:flutter/material.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   runApp(const SecurityPracticesApp());
 }
 
@@ -55,7 +59,7 @@ class HomeScreen extends StatelessWidget {
             title: '3. API Keys: .env vs --dart-define',
             subtitle: 'Secure configuration management',
             onTap: () {
-              // TODO: Navigate to API Keys Demo
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ApiKeysScreen()));
             },
           ),
           _buildMenuTile(
@@ -109,5 +113,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
+
 
 
