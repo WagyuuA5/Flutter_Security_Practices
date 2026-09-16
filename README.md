@@ -1,157 +1,128 @@
 ﻿# Flutter Security Practices
 
-Proyek ini adalah demonstrasi interaktif berbagai teknik pengamanan pada aplikasi Flutter, mulai dari penyimpanan data yang aman, autentikasi biometrik, manajemen API Keys, SSL Pinning, pencegahan screenshot, deteksi root/jailbreak, hingga obfuscation dan input validation.
+This repository serves as an interactive demonstration of various security techniques in Flutter applications. It covers essential security implementations ranging from secure data storage, biometric authentication, API key management, SSL Pinning, screenshot prevention, root/jailbreak detection, to code obfuscation and input validation.
 
 ---
 
 ## 🔒 OWASP MASVS (Mobile Application Security Verification Standard) - Basic Checklist
 
-Checklist keamanan dasar ini diadaptasi dari praktik terbaik OWASP untuk aplikasi mobile.
+This basic security checklist is adapted from OWASP best practices for mobile applications.
 
 - [x] **V1: Architecture, Design and Threat Modeling**
-  - Semua secret (API Keys) diasumsikan bisa diekstrak dari sisi client. Secret yang sebenarnya harus berada di backend.
+  - All secrets (API Keys) are assumed to be extractable from the client side. Real secrets must reside on the backend.
 - [x] **V2: Data Storage and Privacy**
-  - [x] Tidak ada kata sandi atau data sensitif yang disimpan di *SharedPreferences* biasa. Semua menggunakan Keychain/Keystore (`flutter_secure_storage`).
-  - [x] Menerapkan `FLAG_SECURE` untuk mencegah data sensitif terekam di screenshot/screen recorder.
+  - [x] No passwords or sensitive data are stored in plain `SharedPreferences`. Everything utilizes iOS Keychain and Android Keystore (via `flutter_secure_storage`).
+  - [x] Implements `FLAG_SECURE` to prevent sensitive data from being captured by screenshots or screen recorders.
 - [x] **V3: Cryptography**
-  - Mengandalkan implementasi kriptografi bawaan platform (Android Keystore / iOS Keychain) daripada membuat algoritma enkripsi sendiri.
+  - Relies on the platform's built-in cryptographic implementations (Android Keystore / iOS Keychain) rather than custom encryption algorithms.
 - [x] **V4: Authentication and Session Management**
-  - [x] Terdapat autentikasi lokal (Biometrik/PIN) untuk mengakses halaman sensitif.
-  - [x] Auto-lock (Sesi *client-side*) setelah beberapa detik *idle*.
+  - [x] Local authentication (Biometric/PIN) is required to access sensitive pages.
+  - [x] Auto-lock (Client-side session timeout) activates after a brief period of inactivity.
 - [x] **V5: Network Communication**
-  - [x] Semua lalu lintas menggunakan TLS/HTTPS.
-  - [x] Menerapkan SSL Pinning (`badCertificateCallback`) untuk mencegah *Man-in-the-Middle* (MitM) via sertifikat CA palsu.
+  - [x] All traffic enforces TLS/HTTPS.
+  - [x] Implements SSL Pinning (`badCertificateCallback`) to prevent Man-in-the-Middle (MitM) attacks via rogue CA certificates.
 - [x] **V6: Platform Interaction**
-  - [x] Input dari pengguna divalidasi dan disanitasi menggunakan Regex di sisi *client* sebelum diproses/dikirim (dan harus divalidasi ulang di backend).
+  - [x] User inputs are validated and sanitized using Regex on the client side before processing/sending (Note: Backend validation is still mandatory).
 - [x] **V7: Code Quality and Build Setting**
-  - [x] Menggunakan *obfuscation* untuk memperlambat *reverse engineering*.
-  - [x] Menggunakan peringatan bila perangkat terdeteksi *Root* / *Jailbreak* / *Emulator*.
-  - [x] Memiliki CI pipeline (GitHub Actions) untuk memvalidasi *linting* dan *unit testing*.
+  - [x] Utilizes code obfuscation to hinder reverse engineering attempts.
+  - [x] Displays warnings when the device is detected as Rooted, Jailbroken, or running on an Emulator.
+  - [x] Includes a CI pipeline (GitHub Actions) to validate linting and unit testing.
 
 ---
 
-## 📚 Penjelasan Fitur dan Implementasi
+## 📚 Features & Implementation Details
 
-## 1. Secure Storage
+### 1. Secure Storage
 
-Aplikasi ini mendemonstrasikan penggunaan lutter_secure_storage untuk menyimpan data sensitif seperti token atau PIN pengguna.
+Demonstrates the use of `flutter_secure_storage` to securely store sensitive data such as user tokens or PINs.
 
-**Mekanisme Penyimpanan:**
-- **iOS:** Menggunakan Keychain Services. Data dienkripsi secara native oleh sistem operasi dan terkait erat dengan aplikasi.
-- **Android:** Menggunakan EncryptedSharedPreferences. Kunci enkripsi disimpan di Android Keystore sehingga lebih aman dari ekstraksi statis.
+**Storage Mechanism:**
+- **iOS:** Uses Keychain Services. Data is natively encrypted by the operating system.
+- **Android:** Uses EncryptedSharedPreferences. The encryption key is stored in the Android Keystore, making static extraction significantly harder.
 
-**Kapan data ini hilang?**
-- Jika user melakukan uninstall aplikasi, data di EncryptedSharedPreferences (Android) biasanya ikut terhapus (kecuali Auto Backup Android 6+ menyimpannya, meski secara default secure preferences di-exclude jika disetting benar). Pada iOS, data Keychain *bisa saja* bertahan setelah uninstall (tergantung versi iOS/setting), dan baru hilang total jika direset/dihapus eksplisit atau factory reset.
-- Level keamanan ini lebih baik dibanding penyimpanan biasa seperti shared_preferences biasa, namun tetap memiliki keterbatasan.
+**Threat Model & Mitigation:**
+- **Threat:** An attacker gaining physical access or file system access (via malware) attempts to steal session tokens.
+- **Mitigation:** Storing data using `flutter_secure_storage` ensures encryption at rest.
+- **Limitation:** On rooted/jailbroken devices, attackers can still hook into the application memory or extract keys. Secure storage only protects data *at rest*.
 
-### Threat -> Mitigasi -> Keterbatasan
-- **Threat:** Penyerang yang mendapat akses fisik ke device atau membaca file system aplikasi (malware) mencoba mencuri token sesi atau PIN pengguna.
-- **Mitigasi:** Menyimpan data menggunakan lutter_secure_storage memastikan data dienkripsi (EncryptedSharedPreferences/Keychain) bukan sekadar plaintext di XML/JSON.
-- **Keterbatasan:** Jika device di-root/jailbreak, penyerang dengan akses root *bisa saja* melakukan hook pada proses aplikasi saat runtime atau mengekstrak kunci dari Keystore/Keychain. Secure storage hanya melindungi data saat *at rest*, bukan saat proses memori berjalan.
-## 2. Biometric Lock
+**lib/features/secure_storage/data/secure_storage_service.dart**
+```dart
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-Mendemonstrasikan proteksi halaman sensitif menggunakan `local_auth`.
+class SecureStorageService {
+  final FlutterSecureStorage _storage;
+  SecureStorageService(this._storage);
 
-**Fitur:**
-- Autentikasi biometrik (Fingerprint/FaceID) saat halaman dibuka.
-- Fallback menggunakan PIN dari `flutter_secure_storage` apabila biometrik gagal atau tidak tersedia.
-- Auto-lock (session timeout) jika tidak ada interaksi sentuhan (Listener) selama 15 detik.
+  Future<void> saveToken(String token) async {
+    await _storage.write(key: 'dummy_token', value: token);
+  }
+}
+```
 
-### Threat -> Mitigasi -> Keterbatasan
-- **Threat:** Seseorang meminjam HP user dalam keadaan tidak terkunci (unlocked) dan mencoba membuka aplikasi untuk melihat saldo atau melakukan transaksi.
-- **Mitigasi:** Menerapkan `local_auth` memaksa verifikasi identitas (biometrik/PIN) setiap kali mengakses data sensitif, ditambah auto-lock agar sesi tidak dibiarkan terbuka terus menerus.
-- **Keterbatasan:** 
-  - Di Android, `local_auth` mengandalkan API biometrik sistem. Pada device yang di-root atau emulator, biometrik bisa di-bypass (misal via perintah `adb` atau modul Magisk) yang langsung mengembalikan nilai `true`. 
-  - PIN fallback bergantung pada secure storage. Jika implementasi secure storage cacat, PIN dapat diekstrak.
-  - Untuk aplikasi berisiko tinggi (fintech), jangan pernah percaya 100% pada hasil autentikasi lokal client. Transaksi tetap memerlukan verifikasi atau token kriptografi yang divalidasi oleh backend (misalnya menggunakan signature/keystore).
-## 3. Menyembunyikan API Keys: `.env` vs `--dart-define`
+### 2. Biometric Authentication & Session Timeout
 
-Mendemonstrasikan dua cara umum mengelola konfigurasi aplikasi (seperti URL backend, API key).
+Demonstrates how to lock sensitive screens using `local_auth` and automatically lock the screen after 15 seconds of inactivity using `Listener`.
 
-**Fitur:**
-- Menggunakan `flutter_dotenv` untuk membaca konfigurasi dari file `.env`.
-- Menggunakan `String.fromEnvironment` untuk membaca konfigurasi dari build arguments (`--dart-define`).
+**Threat Model & Mitigation:**
+- **Threat:** An unauthorized person takes over the device while the app is left open by the legitimate user.
+- **Mitigation:** Sensitive pages require Biometric/PIN authentication and automatically lock after an idle timeout.
+- **Limitation:** Fallback PINs rely on Secure Storage. If the Secure Storage is compromised (e.g., via root access), the fallback PIN can be bypassed.
 
-### Threat -> Mitigasi -> Keterbatasan
-- **Threat:** Seseorang mendekompilasi APK/IPA (menggunakan apktool, dll) dan mengekstrak API key yang di-*hardcode* di dalam kode. Penyerang menggunakan API key tersebut untuk menghabiskan kuota layanan berbayar (misalnya Google Maps API, Firebase, Midtrans, dll) atau membobol sistem.
-- **Mitigasi:** Menggunakan `.env` mencegah key masuk ke *version control* (GitHub), sehingga repository publik/private tetap bersih dari secret. Menggunakan `--dart-define` menyematkan key langsung pada saat kompilasi CI/CD, yang sedikit lebih tersamar dibanding `.env` yang berupa plain-text asset.
-- **Keterbatasan:** 
-  - **Kedua cara tersebut TIDAK AMAN untuk menyimpan *production secret*.** File `.env` disertakan sebagai aset (biasanya di `assets/.env`) di dalam APK dan sangat mudah diekstrak. `--dart-define` memang dikompilasi ke dalam native library (misal `libapp.so`), namun nilainya tetap dapat ditemukan dengan perintah dasar seperti `strings libapp.so`.
-  - **Satu-satunya mitigasi sejati:** Jangan pernah menyimpan kredensial berharga tinggi di aplikasi *client*. Pindahkan logika pemanggilan API ke *Backend proxy* milik Anda sendiri. Aplikasi hanya berkomunikasi ke *Backend* Anda, lalu *Backend* yang menyuntikkan API key asli dan meneruskannya ke layanan pihak ketiga.
-## 4. SSL Pinning
+### 3. API Key Management (`.env` vs `--dart-define`)
 
-Demo memvalidasi sertifikat server secara manual menggunakan dio dan `badCertificateCallback`.
-Untuk mendapatkan fingerprint dari suatu domain, kita bisa menggunakan OpenSSL (script tersedia di `scripts/get_fingerprint.sh`):
+Demonstrates the differences and limitations of storing API keys in client-side applications.
 
+**Threat Model & Mitigation:**
+- **Threat:** Attackers extract API keys from the application binary or asset files.
+- **Mitigation:** Using `.env` prevents keys from being committed to version control. Using `--dart-define` embeds the key during compilation, making it slightly harder to extract than plain-text assets.
+- **Limitation:** **Neither method is secure for production secrets.** `.env` files can be easily extracted from the APK. `--dart-define` strings can still be found using simple reverse engineering tools like `strings`.
+- **True Mitigation:** Never store high-value secrets on the client app. Use a backend proxy server to inject keys and communicate with third-party services.
+
+### 4. SSL Pinning
+
+Validates server certificates manually using `dio` and `badCertificateCallback`.
+
+**Threat Model & Mitigation:**
+- **Threat:** Man-in-the-Middle (MitM) attacks where an attacker intercepts HTTPS traffic using a rogue CA certificate.
+- **Mitigation:** SSL/Certificate Pinning verifies the server's certificate fingerprint against a hardcoded fingerprint in the app. If they don't match, the connection is dropped.
+- **Limitation:** Makes certificate rotation difficult (requires app updates). Can be bypassed on rooted devices using tools like Frida or Xposed.
+
+**scripts/get_fingerprint.sh**
 ```bash
-# SHA-256
-echo | openssl s_client -connect jsonplaceholder.typicode.com:443 2>/dev/null | openssl x509 -noout -fingerprint -sha256
-
-# SHA-1
+# Retrieve SHA-1 fingerprint for pinning
 echo | openssl s_client -connect jsonplaceholder.typicode.com:443 2>/dev/null | openssl x509 -noout -fingerprint -sha1
 ```
 
-### Threat -> Mitigasi -> Keterbatasan
-- **Threat:** Serangan Man-in-the-Middle (MitM) di mana penyerang berada dalam satu jaringan (misalnya public WiFi) atau menanamkan CA certificate palsu ke device korban untuk menyadap lalu lintas HTTPS (contoh: Charles Proxy, Burp Suite).
-- **Mitigasi:** Menggunakan SSL/Certificate Pinning. Aplikasi tidak hanya mengecek apakah sertifikat tersebut valid menurut sistem operasi, tetapi mengecek apakah *fingerprint* sertifikat atau *public key*-nya sama persis dengan yang kita simpan di dalam kode aplikasi. Jika berbeda, aplikasi langsung memutus koneksi.
-- **Keterbatasan:** 
-  - Menyulitkan rotasi sertifikat. Jika sertifikat server kedaluwarsa atau dirotasi lebih cepat dan aplikasi belum diupdate di PlayStore/AppStore, koneksi akan gagal dan aplikasi tidak bisa dipakai (brick). Perlu strategi seperti mem-pin beberapa sertifikat sekaligus (termasuk sertifikat backup/intermediate).
-  - Di *rooted/jailbroken* device, pinning sangat mudah di-bypass menggunakan alat seperti *Frida*, *Objection*, atau *Xposed modules* (misalnya JustTrustMe). SSL Pinning menaikkan tingkat kesulitan, tetapi tidak mustahil ditembus oleh penyerang dengan akses penuh ke perangkat.
-## 5. Obfuscation & Build Info
+### 5. Build Obfuscation & Security Info
 
-Aplikasi Dart dikompilasi ke bentuk native (AOT) di mode *release*. Namun, simbol-simbol (nama kelas, fungsi, variabel) masih bisa dibaca dengan alat reverse engineering. Obfuscation bertujuan mengubah nama-nama tersebut menjadi karakter tak bermakna (seperti `a`, `b`, `c`), sehingga memperlambat peretas dalam memahami logika aplikasi.
+Obfuscates the compiled binary to make reverse engineering difficult.
 
-### Cara Membangun Aplikasi Obfuscated
+**Threat Model & Mitigation:**
+- **Threat:** Attackers decompile the application to reverse engineer business logic, proprietary algorithms, or find hidden endpoints.
+- **Mitigation:** Obfuscation (name mangling) significantly increases the time and expertise required to understand the decompiled code.
+- **Limitation:** Obfuscation is not absolute prevention. Persistent attackers can still use dynamic analysis (debuggers) to understand the program flow without knowing the original function names.
 
-Sebuah script sederhana tersedia di `scripts/build_secure_release.sh`:
-
+**scripts/build_secure_release.sh**
 ```bash
-flutter build apk --release --obfuscate --split-debug-info=build/symbols
-```
-*(Catatan: ganti `apk` dengan `ipa` atau `appbundle` sesuai target platform)*
-
-### Cara De-Obfuscate Stack Trace (Saat Terjadi Crash)
-Anda WAJIB menyimpan folder `build/symbols` setiap kali melakukan rilis ke PlayStore/AppStore. Jika terjadi error di production, stack trace-nya tidak akan bisa dibaca kecuali Anda men-deobfuscate menggunakan file symbol yang cocok:
-
-```bash
-flutter symbolize -i <obfuscated_stack_trace_file> -d build/symbols/app.android-arm64.symbols
+# Build APK with obfuscation
+flutter build apk --release --obfuscate --split-debug-info=build/app/outputs/symbols
 ```
 
-### Threat -> Mitigasi -> Keterbatasan
-- **Threat:** Peretas mendekompilasi / reverse-engineering aplikasi (misalnya APK) untuk mencari celah keamanan, logika bisnis rahasia, algoritma eksklusif, atau letak URL dan kunci kriptografi yang disembunyikan dalam source code.
-- **Mitigasi:** Obfuscation (penyamaran kode). Membaca dan menganalisis kode yang diobfuscate membutuhkan usaha, waktu, dan keahlian yang jauh lebih besar, sehingga mematahkan niat peretas pemula atau *script kiddies*.
-- **Keterbatasan:** 
-  - Obfuscation **BUKAN** pencegahan total. Peretas yang persisten dan mahir tetap bisa menganalisis jalannya program melalui *dynamic analysis* (menggunakan debugger, Frida) tanpa perlu membaca nama fungsi yang sebenarnya.
-  - Obfuscation bukan pengganti validasi di sisi server.
-## 6. Root/Jailbreak Detection & Screenshot Blocking
+### 6. Root/Jailbreak Detection & Screenshot Blocking
 
-Mendemonstrasikan pencegahan kebocoran data di halaman sensitif ("Saldo Dummy") dari screenshot/screen recorder, serta mendeteksi kondisi perangkat.
+Prevents data leaks on sensitive pages by blocking screenshots and detects if the device is rooted/jailbroken.
 
-**Fitur:**
-- Menggunakan `flutter_windowmanager` untuk menambahkan `FLAG_SECURE` di Android pada halaman `BiometricLockScreen`.
-- Menggunakan `safe_device` untuk mendeteksi status *rooted/jailbroken* dan menampilkan *warning banner* tanpa memblokir aplikasi secara total.
+**Threat Model & Mitigation:**
+- **Threat:** Screenlogger malware running in the background captures sensitive information, or attackers use hooking tools (Frida) on rooted devices to alter memory states.
+- **Mitigation:** `FLAG_SECURE` instructs the OS to render the screen black during screen recording or screenshots. `safe_device` detects root access to provide early warnings.
+- **Limitation:** Root detection is a cat-and-mouse game; tools like Magisk Hide can bypass it. Screenshot blocking only works on-device and cannot prevent physical cameras from taking photos of the screen.
 
-### Threat -> Mitigasi -> Keterbatasan
-- **Threat (Root/Jailbreak):** Penyerang menggunakan *Frida* atau alat hooking lain pada perangkat yang sudah di-root untuk mengubah *state* memori aplikasi (misal mengubah nilai saldo di RAM) atau mencuri *key* yang sedang diproses.
-- **Threat (Screenshot):** *Malware* perekam layar (Screenlogger) berjalan di *background* untuk menangkap informasi sensitif saat user membukanya, atau user sengaja/tidak sengaja melakukan screenshot informasi sensitif dan menyebarkannya.
-- **Mitigasi:**
-  - Mendeteksi root/jailbreak untuk memberikan peringatan dini atau membekukan fitur tertentu (membutuhkan keputusan produk). Di demo ini, kita tidak *force close* agar tidak menyulitkan *developer* (false positive) namun menampilkan *warning*.
-  - Menggunakan `FLAG_SECURE` pada sistem operasi akan menyuruh OS merender tampilan menjadi hitam/kosong saat aplikasi direkam atau di-*screenshot*.
-- **Keterbatasan:** 
-  - Deteksi Root/Jailbreak adalah permainan "kucing-kucingan". Alat seperti *Magisk Hide*, *Shamiko*, atau fitur *root cloaking* lainnya dapat menyembunyikan status root dari *library* pendeteksi konvensional.
-  - Fitur anti-screenshot/screen-recorder HANYA berjalan pada level OS (on-device). Penyerang masih bisa memotret layar menggunakan kamera HP lain (Optical/Physical Breach). Oleh karena itu, fitur ini lebih efektif untuk mencegah *malware screenlogger* ketimbang menghentikan niat fisik pengguna.
-## 7. Input Validation & Sanitization
+### 7. Input Validation & Sanitization
 
-Mendemonstrasikan pencegahan injeksi dari sisi *client*.
+Demonstrates client-side injection prevention.
 
-**Fitur:**
-- Menggunakan `RegExp` untuk memastikan nominal transfer hanya berisi angka positif bulat.
-- Menolak karakter mencurigakan (`<`, `>`, kata `script`) pada field catatan transfer untuk mencegah XSS (Cross-Site Scripting).
+**Threat Model & Mitigation:**
+- **Threat:** Attackers send malicious payloads (HTML/JS scripts, SQL queries, or integer overflows).
+- **Mitigation:** Validating data types, formats, and ranges using Regex before sending requests improves UX and prevents accidental invalid inputs.
+- **Limitation:** **CRITICAL:** Client-side validation is strictly for User Experience. Attackers can bypass the app entirely and send malicious HTTP requests directly to the backend API. **Backend validation is absolutely mandatory.**
 
-### Threat -> Mitigasi -> Keterbatasan
-- **Threat:** Penyerang mengirimkan *malicious payload* berupa script HTML/JS, query SQL, atau *overflow integer* (contoh: transfer nominal negatif untuk menambah saldo sendiri).
-- **Mitigasi:** Memvalidasi tipe data, format, dan *range* menggunakan *Regex* sebelum *request* dikirim ke jaringan. Hal ini mencegah pengguna awam mengirim data sampah secara tidak sengaja dan meningkatkan UX.
-- **Keterbatasan:** 
-  - **SANGAT PENTING:** Validasi *client-side* (di dalam aplikasi Flutter) HANYA untuk User Experience. Ini sama sekali bukan tameng keamanan.
-  - Peretas yang sebenarnya tidak akan menggunakan aplikasi Anda untuk mengirim payload. Mereka akan menggunakan *tools* seperti *Burp Suite*, *Postman*, atau skrip Python untuk mengirim *request HTTP* secara langsung ke Backend API Anda, sepenuhnya *bypass* aplikasi Flutter.
-  - Oleh karena itu, logika yang sama (validasi dan sanitisasi) **WAJIB** diimplementasikan ulang secara ketat di sisi **Backend/Server**.
