@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'package:flutter_security_practices/features/biometric/presentation/biometric_lock_screen.dart';
+import 'package:flutter_security_practices/features/secure_storage/presentation/secure_storage_screen.dart';
+import 'package:flutter/material.dart';
 
 void main() {
   runApp(const SecurityPracticesApp());
@@ -37,7 +39,7 @@ class HomeScreen extends StatelessWidget {
             title: '1. Secure Storage',
             subtitle: 'Store tokens & PINs securely',
             onTap: () {
-              // TODO: Navigate to Secure Storage Demo
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const SecureStorageScreen()));
             },
           ),
           _buildMenuTile(
@@ -45,7 +47,7 @@ class HomeScreen extends StatelessWidget {
             title: '2. Biometric Lock',
             subtitle: 'Local auth with fallback PIN',
             onTap: () {
-              // TODO: Navigate to Biometric Lock Demo
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const BiometricLockScreen()));
             },
           ),
           _buildMenuTile(
@@ -107,3 +109,5 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
+
