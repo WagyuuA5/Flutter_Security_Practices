@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+import 'package:safe_device/safe_device.dart';
 
 class BiometricLockScreen extends StatefulWidget {
   const BiometricLockScreen({super.key});
@@ -22,10 +25,38 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
   Timer? _idleTimer;
   static const int _idleTimeoutSeconds = 15;
 
+  bool _isJailBroken = false;
+  bool _isRealDevice = true;
+
   @override
   void initState() {
     super.initState();
+    _secureScreen();
+    _checkDeviceStatus();
     _checkBiometric();
+  }
+
+  Future<void> _secureScreen() async {
+    if (Platform.isAndroid) {
+      await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+    }
+  }
+
+  Future<void> _checkDeviceStatus() async {
+    bool isJailBroken = false;
+    bool isRealDevice = true;
+    try {
+      isJailBroken = await SafeDevice.isJailBroken;
+      isRealDevice = await SafeDevice.isRealDevice;
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+    if (mounted) {
+      setState(() {
+        _isJailBroken = isJailBroken;
+        _isRealDevice = isRealDevice;
+      });
+    }
   }
 
   void _resetIdleTimer() {
@@ -62,7 +93,9 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
       } on PlatformException catch (e) {
         debugPrint(e.toString());
       }
-
+      
+      // Fallback untuk backward compatibility/perbaikan plugin sebelumnya
+      if (!didAuthenticate && !mounted) return;
       if (didAuthenticate) {
         setState(() {
           _isAuthenticated = true;
@@ -97,6 +130,9 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
   void dispose() {
     _idleTimer?.cancel();
     _pinController.dispose();
+    if (Platform.isAndroid) {
+      FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
+    }
     super.dispose();
   }
 
@@ -105,33 +141,67 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
     return Listener(
       onPointerDown: (_) => _resetIdleTimer(),
       child: Scaffold(
-        appBar: AppBar(title: const Text('2. Biometric Lock')),
-        body: _isAuthenticated ? _buildSensitiveContent() : _buildFallbackLogin(),
+        appBar: AppBar(title: const Text('2. Biometric & Secure View')),
+        body: Column(
+          children: [
+            if (_isJailBroken)
+              Container(
+                width: double.infinity,
+                color: Colors.red,
+                padding: const EdgeInsets.all(8),
+                child: const Text(
+                  'WARNING: Root/Jailbreak Detected!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            if (!_isRealDevice)
+              Container(
+                width: double.infinity,
+                color: Colors.orange,
+                padding: const EdgeInsets.all(8),
+                child: const Text(
+                  'WARNING: Emulator/Simulator Detected!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            Expanded(
+              child: _isAuthenticated ? _buildSensitiveContent() : _buildFallbackLogin(),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSensitiveContent() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.lock_open, size: 64, color: Colors.green),
-          SizedBox(height: 16),
-          Text(
+          const Icon(Icons.lock_open, size: 64, color: Colors.green),
+          const SizedBox(height: 16),
+          const Text(
             'Saldo Dummy',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 8),
-          Text(
+          const SizedBox(height: 8),
+          const Text(
             'Rp 1.000.000.000',
             style: TextStyle(fontSize: 32, color: Colors.green),
           ),
-          SizedBox(height: 32),
+          const SizedBox(height: 32),
           Text(
             'Halaman ini akan terkunci otomatis\ndalam $_idleTimeoutSeconds detik jika tidak ada aktivitas.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
+            style: const TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 32),
+          const Text(
+            'Halaman ini DIPROTEKSI oleh FLAG_SECURE (Android).\nCoba screenshot atau screen record!',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
           ),
         ],
       ),
