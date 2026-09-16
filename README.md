@@ -4,7 +4,7 @@ This repository serves as an interactive demonstration of various security techn
 
 ---
 
-## 🔒 OWASP MASVS (Mobile Application Security Verification Standard) - Basic Checklist
+##  OWASP MASVS (Mobile Application Security Verification Standard) - Basic Checklist
 
 This basic security checklist is adapted from OWASP best practices for mobile applications.
 
@@ -30,7 +30,7 @@ This basic security checklist is adapted from OWASP best practices for mobile ap
 
 ---
 
-## 📚 Features & Implementation Details
+##  Features & Implementation Details
 
 ### 1. Secure Storage
 
