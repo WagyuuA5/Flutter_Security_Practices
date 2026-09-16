@@ -1,4 +1,5 @@
-﻿import 'package:flutter_security_practices/features/api_keys/presentation/api_keys_screen.dart';
+﻿import 'package:flutter_security_practices/features/ssl_pinning/presentation/ssl_pinning_screen.dart';
+import 'package:flutter_security_practices/features/api_keys/presentation/api_keys_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_security_practices/features/biometric/presentation/biometric_lock_screen.dart';
 import 'package:flutter_security_practices/features/secure_storage/presentation/secure_storage_screen.dart';
@@ -67,7 +68,7 @@ class HomeScreen extends StatelessWidget {
             title: '4. SSL Pinning',
             subtitle: 'Certificate and Public Key Pinning',
             onTap: () {
-              // TODO: Navigate to SSL Pinning Demo
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const SslPinningScreen()));
             },
           ),
           _buildMenuTile(
@@ -113,6 +114,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
 
 
 
