@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import '../data/secure_storage_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorageScreen extends StatefulWidget {
@@ -9,7 +10,7 @@ class SecureStorageScreen extends StatefulWidget {
 }
 
 class _SecureStorageScreenState extends State<SecureStorageScreen> {
-  final _storage = const FlutterSecureStorage();
+  final _service = SecureStorageService(const FlutterSecureStorage());
   final _tokenController = TextEditingController();
   final _pinController = TextEditingController();
   
@@ -23,8 +24,8 @@ class _SecureStorageScreenState extends State<SecureStorageScreen> {
   }
 
   Future<void> _loadData() async {
-    final token = await _storage.read(key: 'dummy_token');
-    final pin = await _storage.read(key: 'dummy_pin');
+    final token = await _service.getToken();
+    final pin = await _service.getPin();
     setState(() {
       _savedToken = token;
       _savedPin = pin;
@@ -32,8 +33,8 @@ class _SecureStorageScreenState extends State<SecureStorageScreen> {
   }
 
   Future<void> _saveData() async {
-    await _storage.write(key: 'dummy_token', value: _tokenController.text);
-    await _storage.write(key: 'dummy_pin', value: _pinController.text);
+    await _service.saveToken(_tokenController.text);
+    await _service.savePin(_pinController.text);
     _tokenController.clear();
     _pinController.clear();
     await _loadData();
@@ -45,8 +46,7 @@ class _SecureStorageScreenState extends State<SecureStorageScreen> {
   }
 
   Future<void> _deleteData() async {
-    await _storage.delete(key: 'dummy_token');
-    await _storage.delete(key: 'dummy_pin');
+    await _service.clearAll();
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
