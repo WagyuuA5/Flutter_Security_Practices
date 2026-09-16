@@ -1,4 +1,5 @@
-﻿import 'package:flutter_security_practices/features/build_info/presentation/build_info_screen.dart';
+﻿import 'package:flutter_security_practices/features/input_validation/presentation/input_validation_screen.dart';
+import 'package:flutter_security_practices/features/build_info/presentation/build_info_screen.dart';
 import 'package:flutter_security_practices/features/ssl_pinning/presentation/ssl_pinning_screen.dart';
 import 'package:flutter_security_practices/features/api_keys/presentation/api_keys_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -93,7 +94,7 @@ class HomeScreen extends StatelessWidget {
             title: '7. Input Validation & Sanitization',
             subtitle: 'Defense in depth at client side',
             onTap: () {
-              // TODO: Navigate to Input Validation Demo
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const InputValidationScreen()));
             },
           ),
         ],
@@ -115,6 +116,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
 
 
 
