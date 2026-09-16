@@ -1,4 +1,5 @@
-﻿import 'package:flutter_security_practices/features/ssl_pinning/presentation/ssl_pinning_screen.dart';
+﻿import 'package:flutter_security_practices/features/build_info/presentation/build_info_screen.dart';
+import 'package:flutter_security_practices/features/ssl_pinning/presentation/ssl_pinning_screen.dart';
 import 'package:flutter_security_practices/features/api_keys/presentation/api_keys_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_security_practices/features/biometric/presentation/biometric_lock_screen.dart';
@@ -76,7 +77,7 @@ class HomeScreen extends StatelessWidget {
             title: '5. Obfuscation & Build Info',
             subtitle: 'App build properties',
             onTap: () {
-              // TODO: Navigate to Obfuscation Demo
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const BuildInfoScreen()));
             },
           ),
           _buildMenuTile(
@@ -114,6 +115,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
 
 
 
